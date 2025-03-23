@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js AR with Surface Detection</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r146/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/webxr/VRButton.js"></script>
+    <script>
+        // Создаем сцену, камеру и рендерер
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Добавляем кнопку для входа в режим AR
+        document.body.appendChild(VRButton.createButton(renderer));
+        renderer.xr.enabled = true;
+
+        // Добавляем освещение
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(10, 10, 10).normalize();
+        scene.add(light);
+
+        // Загружаем модель
+        const loader = new THREE.GLTFLoader();
+        let model;
+        loader.load('prised2.glb', (gltf) => {
+            model = gltf.scene;
+            model.scale.set(0.5, 0.5, 0.5); // Масштабируем модель
+            scene.add(model);
+        });
+
+        // Настройка камеры
+        camera.position.z = 5;
+
+        // Hit Testing для размещения модели на поверхности
+        let hitTestSource = null;
+        let localSpace = null;
+
+        async function initializeHitTesting() {
+            const session = renderer.xr.getSession();
+            const viewerSpace = await session.requestReferenceSpace('viewer');
+            hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+
+            localSpace = await session.requestReferenceSpace('local');
+        }
+
+        function onXRFrame(time, frame) {
+            const session = frame.session;
+
+            if (!hitTestSource) {
+                initializeHitTesting();
+                return;
+            }
+
+            const hitTestResults = frame.getHitTestResults(hitTestSource);
+            if (hitTestResults.length > 0) {
+                const pose = hitTestResults[0].getPose(localSpace);
+
+                // Размещаем модель на поверхности
+                if (model) {
+                    model.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        renderer.setAnimationLoop(onXRFrame);
+    </script>
+</body>
+</html>

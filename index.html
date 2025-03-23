@@ -3,19 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Model with Dynamic Surface Detection</title>
+    <title>AR Model with Dynamic Spawning</title>
     <style>
-        body { margin: 0; }
-        canvas { display: block; }
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif;
+        }
+        canvas { 
+            display: block; 
+        }
+
+        /* Стили для кнопки AR */
+        .ar-button {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* Стили для сообщений */
+        .message {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 5px;
+            font-size: 14px;
+            display: none; /* По умолчанию скрыто */
+        }
     </style>
 </head>
 <body>
+    <!-- Кнопка для активации AR -->
+    <button id="arButton" class="ar-button">
+        Включить AR
+    </button>
+
+    <!-- Сообщение о поддержке AR -->
+    <div id="message" class="message">
+        AR не поддерживается на этом устройстве.
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r146/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three/examples/js/webxr/VRButton.js"></script>
     <script>
-        console.log('Загрузка скриптов...');
-
         // Создаем сцену, камеру и рендерер
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -23,29 +65,24 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        console.log('Сцена и рендерер созданы.');
-
         // Добавляем кнопку для входа в режим AR
         document.body.appendChild(VRButton.createButton(renderer));
         renderer.xr.enabled = true;
-
-        console.log('Кнопка AR добавлена.');
 
         // Добавляем освещение
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(10, 10, 10).normalize();
         scene.add(light);
 
-        console.log('Освещение добавлено.');
-
         // Загружаем модель
         const loader = new THREE.GLTFLoader();
         let model;
         loader.load(
-            'modelka.glb', // Убедитесь, что путь к модели правильный
+            'prised2.glb', // Тестовая модель
             (gltf) => {
                 model = gltf.scene;
                 model.scale.set(0.5, 0.5, 0.5); // Масштабируем модель
+                model.visible = false; // Скрываем модель до первого размещения
                 scene.add(model);
                 console.log('Модель загружена.');
             },
@@ -75,6 +112,9 @@
             }
         }
 
+        let lastUpdateTime = 0;
+        const delay = 2000; // Задержка 2 секунды
+
         function onXRFrame(time, frame) {
             const session = frame.session;
 
@@ -87,15 +127,40 @@
             if (hitTestResults.length > 0) {
                 const pose = hitTestResults[0].getPose(localSpace);
 
-                // Размещаем модель на поверхности
-                if (model) {
+                // Обновляем позицию модели с задержкой
+                if (model && time - lastUpdateTime > delay) {
                     model.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
                     model.quaternion.setFromRotationMatrix(pose.transform.orientation);
+                    model.visible = true; // Показываем модель
+                    lastUpdateTime = time;
+                    console.log('Модель перемещена на новую поверхность.');
                 }
             }
 
             renderer.render(scene, camera);
         }
+
+        // Получаем элементы интерфейса
+        const arButton = document.getElementById('arButton');
+        const message = document.getElementById('message');
+
+        // Проверяем поддержку WebXR
+        if ('xr' in navigator) {
+            console.log('WebXR поддерживается.');
+        } else {
+            console.warn('WebXR не поддерживается.');
+            message.style.display = 'block'; // Показываем сообщение
+            arButton.disabled = true; // Отключаем кнопку
+        }
+
+        // Активация AR при нажатии на кнопку
+        arButton.addEventListener('click', () => {
+            if (navigator.xr) {
+                renderer.xr.isPresenting ? renderer.xr.stop() : renderer.xr.start();
+            } else {
+                alert('WebXR не поддерживается на этом устройстве.');
+            }
+        });
 
         renderer.setAnimationLoop(onXRFrame);
     </script>

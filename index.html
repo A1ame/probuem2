@@ -14,6 +14,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three/examples/js/webxr/VRButton.js"></script>
     <script>
+        console.log('Загрузка скриптов...');
+
         // Создаем сцену, камеру и рендерер
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -21,23 +23,37 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        console.log('Сцена и рендерер созданы.');
+
         // Добавляем кнопку для входа в режим AR
         document.body.appendChild(VRButton.createButton(renderer));
         renderer.xr.enabled = true;
+
+        console.log('Кнопка AR добавлена.');
 
         // Добавляем освещение
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(10, 10, 10).normalize();
         scene.add(light);
 
+        console.log('Освещение добавлено.');
+
         // Загружаем модель
         const loader = new THREE.GLTFLoader();
         let model;
-        loader.load('prised2.glb', (gltf) => {
-            model = gltf.scene;
-            model.scale.set(0.5, 0.5, 0.5); // Масштабируем модель
-            scene.add(model);
-        });
+        loader.load(
+            'prised2.glb', 
+            (gltf) => {
+                model = gltf.scene;
+                model.scale.set(0.5, 0.5, 0.5); // Масштабируем модель
+                scene.add(model);
+                console.log('Модель загружена.');
+            },
+            undefined,
+            (error) => {
+                console.error('Ошибка загрузки модели:', error);
+            }
+        );
 
         // Настройка камеры
         camera.position.z = 5;
@@ -47,11 +63,16 @@
         let localSpace = null;
 
         async function initializeHitTesting() {
-            const session = renderer.xr.getSession();
-            const viewerSpace = await session.requestReferenceSpace('viewer');
-            hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+            try {
+                const session = renderer.xr.getSession();
+                const viewerSpace = await session.requestReferenceSpace('viewer');
+                hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
 
-            localSpace = await session.requestReferenceSpace('local');
+                localSpace = await session.requestReferenceSpace('local');
+                console.log('Hit Testing инициализирован.');
+            } catch (error) {
+                console.error('Ошибка инициализации Hit Testing:', error);
+            }
         }
 
         function onXRFrame(time, frame) {
